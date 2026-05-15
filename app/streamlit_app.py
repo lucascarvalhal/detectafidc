@@ -192,6 +192,104 @@ def inject_theme(theme: str) -> dict:
         padding: 16px 18px;
       }}
 
+      /* st.json e blocos de código, garantir contraste em ambos os temas */
+      [data-testid="stJson"], .stJson, pre, code {{
+        background: {p['panel_2']} !important;
+        color: {p['text']} !important;
+        border: 1px solid {p['border']} !important;
+      }}
+      [data-testid="stJson"] *, .stJson *, pre *, code * {{
+        color: {p['text']} !important;
+      }}
+      .stJson .object-key, .stJson .object-key-val span {{
+        color: {p['accent']} !important;
+      }}
+      .stJson .variable-value, .stJson .number {{
+        color: {p['primary']} !important;
+      }}
+
+      /* Botões, download e ações, sempre com contraste */
+      .stButton > button, .stDownloadButton > button {{
+        background: {p['panel_2']} !important;
+        color: {p['text']} !important;
+        border: 1px solid {p['border_strong']} !important;
+        border-radius: 0 !important;
+        font-weight: 500 !important;
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }}
+      .stButton > button:hover, .stDownloadButton > button:hover {{
+        background: {p['primary']} !important;
+        color: #FFFFFF !important;
+        border-color: {p['primary']} !important;
+      }}
+      .stButton > button:focus, .stDownloadButton > button:focus {{
+        outline: 2px solid {p['primary']} !important;
+        outline-offset: 2px;
+        box-shadow: none !important;
+      }}
+      .stButton > button:active, .stDownloadButton > button:active {{
+        background: {p['border_strong']} !important;
+      }}
+
+      /* Expander, header e fundo */
+      [data-testid="stExpander"] {{
+        background: {p['card_bg']} !important;
+        border: 1px solid {p['border']} !important;
+      }}
+      [data-testid="stExpander"] summary {{ color: {p['text']} !important; }}
+      [data-testid="stExpander"] summary:hover {{ background: {p['panel_2']} !important; }}
+      [data-testid="stExpander"] svg {{ fill: {p['muted']} !important; }}
+
+      /* Banners nativos do Streamlit, info/warning/success/error */
+      [data-testid="stNotification"], [data-testid="stAlert"] {{
+        background: {p['panel_2']} !important;
+        color: {p['text']} !important;
+        border-left: 3px solid {p['primary']} !important;
+      }}
+      [data-testid="stNotification"] *, [data-testid="stAlert"] * {{
+        color: {p['text']} !important;
+      }}
+
+      /* DataFrame headers, sem azul */
+      .stDataFrame thead th {{
+        background: {p['panel_2']} !important;
+        color: {p['text']} !important;
+        border-bottom: 2px solid {p['border_strong']} !important;
+      }}
+      .stDataFrame tbody td {{
+        background: {p['card_bg']} !important;
+        color: {p['text']} !important;
+      }}
+      .stDataFrame tbody tr:hover td {{
+        background: {p['panel_2']} !important;
+      }}
+
+      /* Multiselect tags, sem azul nativo */
+      [data-baseweb="tag"] {{
+        background: {p['panel_2']} !important;
+        color: {p['text']} !important;
+        border: 1px solid {p['border']} !important;
+      }}
+      [data-baseweb="tag"] svg {{ fill: {p['text']} !important; }}
+
+      /* Segmented control, neutralizar azul */
+      [data-testid="stSegmentedControl"] button {{
+        background: {p['panel_2']} !important;
+        color: {p['text']} !important;
+        border: 1px solid {p['border']} !important;
+      }}
+      [data-testid="stSegmentedControl"] button[aria-pressed="true"],
+      [data-testid="stSegmentedControl"] button[aria-checked="true"] {{
+        background: {p['text']} !important;
+        color: {p['bg']} !important;
+        border-color: {p['text']} !important;
+      }}
+
+      /* Foco geral, sem ring azul Streamlit */
+      *:focus-visible {{
+        outline-color: {p['muted']} !important;
+      }}
+
       /* Limpar qualquer cor azul residual do option_menu */
       section[data-testid="stSidebar"] nav,
       section[data-testid="stSidebar"] nav a,
