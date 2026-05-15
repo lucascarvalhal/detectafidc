@@ -214,6 +214,19 @@ def inject_theme(theme: str) -> dict:
         outline: none !important;
         box-shadow: none !important;
       }}
+
+      /* Neutralizar bolinhas azuis dos radio buttons como fallback */
+      section[data-testid="stSidebar"] div[role="radiogroup"] label svg {{
+        fill: {p['muted']} !important;
+      }}
+      section[data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child {{
+        background-color: {p['panel_2']} !important;
+        border-color: {p['border']} !important;
+      }}
+      section[data-testid="stSidebar"] div[role="radiogroup"] input:checked + div {{
+        background-color: {p['text']} !important;
+        border-color: {p['text']} !important;
+      }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
@@ -720,14 +733,23 @@ def main() -> None:
             unsafe_allow_html=True,
         )
 
-        theme_label = st.radio(
-            "Tema",
-            ["🌙 Dark", "☀ Light"],
-            index=0 if st.session_state["theme"] == "dark" else 1,
-            horizontal=True,
-            label_visibility="collapsed",
-        )
-        st.session_state["theme"] = "dark" if theme_label.startswith("🌙") else "light"
+        try:
+            theme_label = st.segmented_control(
+                "Tema",
+                options=["🌙 Dark", "☀ Light"],
+                default="🌙 Dark" if st.session_state["theme"] == "dark" else "☀ Light",
+                label_visibility="collapsed",
+            )
+        except AttributeError:
+            theme_label = st.radio(
+                "Tema",
+                ["🌙 Dark", "☀ Light"],
+                index=0 if st.session_state["theme"] == "dark" else 1,
+                horizontal=True,
+                label_visibility="collapsed",
+            )
+        if theme_label:
+            st.session_state["theme"] = "dark" if theme_label.startswith("🌙") else "light"
 
     p = inject_theme(st.session_state["theme"])
 
