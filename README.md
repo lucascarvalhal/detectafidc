@@ -1,16 +1,3 @@
----
-title: DetectaFIDC
-emoji: "📊"
-colorFrom: blue
-colorTo: gray
-sdk: streamlit
-sdk_version: 1.40.0
-app_file: app/streamlit_app.py
-pinned: false
-license: mit
-short_description: Console de risco em FIDCs - Sprint 4 FIAP+Nuclea
----
-
 # DetectaFIDC
 
 Console analítico para priorização de risco em **Fundos de Investimento em Direitos Creditórios (FIDCs)**.
@@ -70,26 +57,84 @@ A interface segue a paleta IBM Carbon, com alternância entre modo claro e escur
 
 ## Arquitetura do pipeline
 
-```
-data/Massa_Dados_Challgenge_Nuclea_v1.zip
-            |
-            v
-  src/pipeline_sprint4.py
-            |
-   +--------+--------+
-   |                 |
-   v                 v
-motor_heuristico  motor_estatistico
-(regras Sprint 3) (Z-score por entidade)
-   |                 |
-   +--------+--------+
-            |
-            v
-   output/alertas_sprint4.csv
-   output/resumo_sprint4.json
-            |
-            v
-   app/streamlit_app.py
+```mermaid
+flowchart TB
+    subgraph entrada["Entrada"]
+        ZIP["Massa_Dados_Challgenge_Nuclea_v1.zip<br/>boletos, sacados, cedentes"]
+        AUX["Bases auxiliares de CNPJ<br/>4.612 registros"]
+    end
+
+    READ["pipeline_sprint4.py<br/>leitura, normalização, deduplicação"]
+    ZIP --> READ
+    AUX --> READ
+
+    subgraph heuristica["Camada heurística"]
+        direction TB
+        HEUR["motor_heuristico.py"]
+        R1["Atraso de pagamento"]
+        R2["Baixa liquidez"]
+        R3["Recorrência atípica"]
+        R4["Indicadores de inadimplência"]
+        R5["Concentração operacional"]
+        HEUR --> R1 --> SH
+        HEUR --> R2 --> SH
+        HEUR --> R3 --> SH
+        HEUR --> R4 --> SH
+        HEUR --> R5 --> SH
+        SH["risk_score_heuristico<br/>0 a 100"]
+    end
+
+    subgraph estatistica["Camada estatística"]
+        direction TB
+        EST["motor_estatistico.py"]
+        ZS["Z-score por sacado<br/>3.525 pagadores"]
+        ZC["Z-score por cedente<br/>1.189 beneficiários"]
+        EST --> ZS --> SE
+        EST --> ZC --> SE
+        SE["statistical_score<br/>0 a 100"]
+    end
+
+    READ --> HEUR
+    READ --> EST
+
+    CONS{"Score consolidado<br/>0,7 × heurístico + 0,3 × estatístico"}
+    SH --> CONS
+    SE --> CONS
+
+    CSV["output/alertas_sprint4.csv"]
+    JSON["output/resumo_sprint4.json"]
+    CONS --> CSV
+    CONS --> JSON
+
+    subgraph dashboard["Dashboard Streamlit"]
+        direction TB
+        APP["app/streamlit_app.py"]
+        V1["Visão geral"]
+        V2["Fila de alertas"]
+        V3["Heurístico × estatístico"]
+        V4["Simulador"]
+        V5["Método"]
+        APP --> V1
+        APP --> V2
+        APP --> V3
+        APP --> V4
+        APP --> V5
+    end
+
+    CSV --> APP
+    JSON --> APP
+
+    classDef input fill:#E8DAEF,stroke:#7D3C98,color:#1B2631
+    classDef process fill:#D6EAF8,stroke:#2874A6,color:#1B2631
+    classDef score fill:#FCF3CF,stroke:#B7950B,color:#1B2631
+    classDef output fill:#D5F5E3,stroke:#1E8449,color:#1B2631
+    classDef ui fill:#FADBD8,stroke:#922B21,color:#1B2631
+
+    class ZIP,AUX input
+    class READ,HEUR,EST,R1,R2,R3,R4,R5,ZS,ZC process
+    class SH,SE,CONS score
+    class CSV,JSON output
+    class APP,V1,V2,V3,V4,V5 ui
 ```
 
 O dashboard lê o CSV pré-gerado em `output/`. Isso permite hospedar a aplicação sem expor a massa de dados
