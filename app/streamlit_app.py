@@ -21,14 +21,54 @@ CSV_PATH = OUTPUT_DIR / "alertas_sprint4.csv"
 JSON_PATH = OUTPUT_DIR / "resumo_sprint4.json"
 LEGACY_CSV = OUTPUT_DIR / "alertas_priorizados.csv"
 
-PRIMARY = "#0078D4"
-ACCENT = "#D4FC79"
 LEVEL_COLORS = {
     "critico": "#FF6B6B",
     "alto": "#FF6F00",
     "medio": "#FFD93D",
     "baixo": "#41B97D",
 }
+
+PALETTES = {
+    "dark": {
+        "primary": "#0078D4",
+        "accent": "#D4FC79",
+        "text": "#F4EFE7",
+        "muted": "#7a8595",
+        "bg": "#0a0e18",
+        "panel": "#10182A",
+        "card_bg": "rgba(255,255,255,0.05)",
+        "plotly_template": "plotly_dark",
+    },
+    "light": {
+        "primary": "#0078D4",
+        "accent": "#4A6B00",
+        "text": "#1a1f2e",
+        "muted": "#5c6573",
+        "bg": "#fafbfc",
+        "panel": "#ffffff",
+        "card_bg": "rgba(0,120,212,0.05)",
+        "plotly_template": "plotly_white",
+    },
+}
+
+
+def apply_theme(theme: str) -> dict:
+    p = PALETTES[theme]
+    css = f"""
+    <style>
+      .stApp {{ background: {p['bg']} !important; color: {p['text']} !important; }}
+      section[data-testid="stSidebar"] {{ background: {p['panel']} !important; }}
+      section[data-testid="stSidebar"] * {{ color: {p['text']} !important; }}
+      [data-testid="stMetricValue"] {{ color: {p['text']} !important; }}
+      [data-testid="stMetricLabel"] {{ color: {p['muted']} !important; }}
+      .stMarkdown, .stCaption, .stSubheader, h1, h2, h3, h4, h5, p, span, label {{
+        color: {p['text']};
+      }}
+      .stDataFrame {{ background: {p['panel']} !important; }}
+    </style>
+    """
+    st.markdown(css, unsafe_allow_html=True)
+    return p
 
 st.set_page_config(
     page_title="DetectaFIDC - Console de Risco",
@@ -57,15 +97,15 @@ def load_data() -> tuple[pd.DataFrame, dict | None]:
     return pd.DataFrame(), None
 
 
-def render_header() -> None:
+def render_header(p: dict) -> None:
     col1, col2 = st.columns([3, 1])
     with col1:
         st.markdown(
-            """
-            <h1 style='margin-bottom:4px;color:#0078D4;letter-spacing:-0.02em;'>
+            f"""
+            <h1 style='margin-bottom:4px;color:{p['primary']};letter-spacing:-0.02em;'>
               DetectaFIDC
             </h1>
-            <p style='color:#7a8595;margin-top:0;font-size:18px;'>
+            <p style='color:{p['muted']};margin-top:0;font-size:18px;'>
               Console de risco em FIDCs - Sprint 4 - Data Vision - FIAP 1TSCO
             </p>
             """,
@@ -73,9 +113,9 @@ def render_header() -> None:
         )
     with col2:
         st.markdown(
-            """
-            <div style='text-align:right;padding-top:18px;color:#7a8595;'>
-              <strong style='color:#D4FC79;'>Solucao final</strong><br>
+            f"""
+            <div style='text-align:right;padding-top:18px;color:{p['muted']};'>
+              <strong style='color:{p['accent']};'>Solucao final</strong><br>
               Enterprise Challenge FIAP + Nuclea
             </div>
             """,
@@ -107,7 +147,7 @@ def render_kpis(df: pd.DataFrame, summary: dict | None) -> None:
         )
 
 
-def render_visao_geral(df: pd.DataFrame, summary: dict | None) -> None:
+def render_visao_geral(df: pd.DataFrame, summary: dict | None, p: dict) -> None:
     st.subheader("Composicao da carteira por nivel de risco")
     col1, col2 = st.columns([1, 1])
 
@@ -127,6 +167,7 @@ def render_visao_geral(df: pd.DataFrame, summary: dict | None) -> None:
             title="Distribuicao heuristica (Sprint 3)",
         )
         fig.update_layout(
+            template=p["plotly_template"],
             showlegend=False,
             xaxis_title="Nivel",
             yaxis_title="Quantidade",
@@ -142,9 +183,10 @@ def render_visao_geral(df: pd.DataFrame, summary: dict | None) -> None:
                 x="statistical_score",
                 nbins=40,
                 title="Distribuicao da camada estatistica (Z-score)",
-                color_discrete_sequence=[PRIMARY],
+                color_discrete_sequence=[p["primary"]],
             )
             fig2.update_layout(
+                template=p["plotly_template"],
                 xaxis_title="Score estatistico (0-100)",
                 yaxis_title="Quantidade",
                 plot_bgcolor="rgba(0,0,0,0)",
@@ -157,8 +199,9 @@ def render_visao_geral(df: pd.DataFrame, summary: dict | None) -> None:
 
     st.subheader("Volume por UF do pagador")
     uf_df = df.groupby("payer_uf").size().reset_index(name="qtd").sort_values("qtd", ascending=False).head(15)
-    fig3 = px.bar(uf_df, x="payer_uf", y="qtd", title=None, color_discrete_sequence=[ACCENT])
+    fig3 = px.bar(uf_df, x="payer_uf", y="qtd", title=None, color_discrete_sequence=[p["accent"]])
     fig3.update_layout(
+        template=p["plotly_template"],
         xaxis_title="UF",
         yaxis_title="Boletos",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -220,7 +263,7 @@ def render_fila_alertas(df: pd.DataFrame) -> None:
     st.dataframe(display, use_container_width=True, hide_index=True, height=500)
 
 
-def render_comparativo(df: pd.DataFrame, summary: dict | None) -> None:
+def render_comparativo(df: pd.DataFrame, summary: dict | None, p: dict) -> None:
     st.subheader("Heuristico vs estatistico")
 
     if "statistical_score" not in df.columns or df["statistical_score"].astype(float).sum() == 0:
@@ -244,6 +287,7 @@ def render_comparativo(df: pd.DataFrame, summary: dict | None) -> None:
     fig.add_shape(type="line", x0=50, x1=50, y0=0, y1=100, line=dict(color="gray", dash="dot"))
     fig.add_shape(type="line", x0=0, x1=100, y0=50, y1=50, line=dict(color="gray", dash="dot"))
     fig.update_layout(
+        template=p["plotly_template"],
         xaxis_title="Score heuristico (Sprint 3)",
         yaxis_title="Score estatistico Z-score (Sprint 4)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -350,7 +394,7 @@ def simular_boleto(
     }
 
 
-def render_simulador(df: pd.DataFrame) -> None:
+def render_simulador(df: pd.DataFrame, p: dict) -> None:
     st.subheader("Simulador de risco")
     st.caption("Preencha os campos do boleto e veja o score dos dois motores em tempo real, com os motivos legíveis.")
 
@@ -397,30 +441,30 @@ def render_simulador(df: pd.DataFrame) -> None:
     with col_right:
         st.markdown("**Resultado da simulação**")
         cols = st.columns(3)
-        cor_heur = LEVEL_COLORS.get(resultado["nivel_heuristico"], "#7a8595")
-        cor_cons = LEVEL_COLORS.get(resultado["nivel_consolidado"], "#7a8595")
+        cor_heur = LEVEL_COLORS.get(resultado["nivel_heuristico"], p["muted"])
+        cor_cons = LEVEL_COLORS.get(resultado["nivel_consolidado"], p["muted"])
         cols[0].markdown(
-            f"<div style='padding:18px;border-radius:14px;background:rgba(0,120,212,0.12);"
-            f"border:1px solid {PRIMARY};'>"
-            f"<div style='font-size:11px;color:#7a8595;'>HEURÍSTICO</div>"
-            f"<div style='font-size:36px;font-weight:700;color:{PRIMARY};'>{resultado['heuristico']}</div>"
+            f"<div style='padding:18px;border-radius:14px;background:{p['card_bg']};"
+            f"border:1px solid {p['primary']};'>"
+            f"<div style='font-size:11px;color:{p['muted']};'>HEURÍSTICO</div>"
+            f"<div style='font-size:36px;font-weight:700;color:{p['primary']};'>{resultado['heuristico']}</div>"
             f"<div style='font-size:12px;color:{cor_heur};font-weight:700;'>{resultado['nivel_heuristico'].upper()}</div>"
             f"</div>",
             unsafe_allow_html=True,
         )
         cols[1].markdown(
-            f"<div style='padding:18px;border-radius:14px;background:rgba(212,252,121,0.10);"
-            f"border:1px solid {ACCENT};'>"
-            f"<div style='font-size:11px;color:#7a8595;'>ESTATÍSTICO</div>"
-            f"<div style='font-size:36px;font-weight:700;color:{ACCENT};'>{resultado['estatistico']}</div>"
-            f"<div style='font-size:12px;color:#7a8595;'>Z = {z_combined:.2f}</div>"
+            f"<div style='padding:18px;border-radius:14px;background:{p['card_bg']};"
+            f"border:1px solid {p['accent']};'>"
+            f"<div style='font-size:11px;color:{p['muted']};'>ESTATÍSTICO</div>"
+            f"<div style='font-size:36px;font-weight:700;color:{p['accent']};'>{resultado['estatistico']}</div>"
+            f"<div style='font-size:12px;color:{p['muted']};'>Z = {z_combined:.2f}</div>"
             f"</div>",
             unsafe_allow_html=True,
         )
         cols[2].markdown(
-            f"<div style='padding:18px;border-radius:14px;background:rgba(255,255,255,0.05);"
+            f"<div style='padding:18px;border-radius:14px;background:{p['card_bg']};"
             f"border:1px solid {cor_cons};'>"
-            f"<div style='font-size:11px;color:#7a8595;'>CONSOLIDADO</div>"
+            f"<div style='font-size:11px;color:{p['muted']};'>CONSOLIDADO</div>"
             f"<div style='font-size:36px;font-weight:700;color:{cor_cons};'>{resultado['consolidado']}</div>"
             f"<div style='font-size:12px;color:{cor_cons};font-weight:700;'>{resultado['nivel_consolidado'].upper()}</div>"
             f"</div>",
@@ -479,8 +523,21 @@ def render_metodo(summary: dict | None) -> None:
 
 
 def main() -> None:
+    if "theme" not in st.session_state:
+        st.session_state["theme"] = "dark"
+
+    theme_label = st.sidebar.radio(
+        "Tema",
+        ["🌙 Dark", "☀ Light"],
+        index=0 if st.session_state["theme"] == "dark" else 1,
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+    st.session_state["theme"] = "dark" if theme_label.startswith("🌙") else "light"
+    p = apply_theme(st.session_state["theme"])
+
     df, summary = load_data()
-    render_header()
+    render_header(p)
 
     if df.empty:
         st.error("Nenhum CSV de saida encontrado em sprint4/output/. Rode `python src/pipeline_sprint4.py` antes.")
@@ -507,13 +564,13 @@ def main() -> None:
     st.divider()
 
     if section == "Visao geral":
-        render_visao_geral(df, summary)
+        render_visao_geral(df, summary, p)
     elif section == "Fila de alertas":
         render_fila_alertas(df)
     elif section == "Heuristico vs estatistico":
-        render_comparativo(df, summary)
+        render_comparativo(df, summary, p)
     elif section == "Simulador":
-        render_simulador(df)
+        render_simulador(df, p)
     elif section == "Metodo":
         render_metodo(summary)
 
