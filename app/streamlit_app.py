@@ -265,6 +265,192 @@ def render_comparativo(df: pd.DataFrame, summary: dict | None) -> None:
         st.dataframe(display, use_container_width=True, hide_index=True)
 
 
+def simular_boleto(
+    valor_nominal: float,
+    delay_days: int,
+    baixa_missing: bool,
+    payer_volume: int,
+    beneficiary_volume: int,
+    payer_liquidity: float,
+    payer_inadimplencia: float,
+    valor_percentil: float,
+    z_combined: float,
+) -> dict:
+    score = 0.0
+    reasons: list[str] = []
+
+    if baixa_missing:
+        score += 18
+        reasons.append("boleto sem valor de baixa")
+
+    if delay_days > 0:
+        score += min(20.0, delay_days / 3)
+        reasons.append(f"pagamento com atraso de {delay_days} dias")
+
+    if valor_percentil >= 0.95:
+        score += 14
+        reasons.append("valor nominal entre os 5% maiores da base")
+    elif valor_percentil >= 0.85:
+        score += 8
+        reasons.append("valor nominal elevado")
+
+    if payer_volume >= 8:
+        score += 8
+        reasons.append("pagador com alta recorrencia de boletos")
+    elif payer_volume >= 5:
+        score += 4
+        reasons.append("pagador com recorrencia relevante")
+
+    if beneficiary_volume >= 8:
+        score += 6
+        reasons.append("beneficiario com alta concentracao operacional")
+
+    if payer_liquidity < 0.45:
+        score += 10
+        reasons.append("pagador com baixa liquidez")
+    elif payer_liquidity < 0.65:
+        score += 4
+        reasons.append("pagador com liquidez moderada")
+
+    if payer_inadimplencia > 0.20:
+        score += 10
+        reasons.append("indicador de inadimplencia elevado")
+    elif payer_inadimplencia > 0.08:
+        score += 5
+        reasons.append("indicador de inadimplencia moderado")
+
+    heuristico = round(min(score, 100.0), 2)
+    if heuristico >= 75:
+        nivel_heur = "critico"
+    elif heuristico >= 50:
+        nivel_heur = "alto"
+    elif heuristico >= 30:
+        nivel_heur = "medio"
+    else:
+        nivel_heur = "baixo"
+
+    estatistico = round(min(100.0, abs(z_combined) * 25.0), 2)
+    consolidado = round(0.7 * heuristico + 0.3 * estatistico, 2)
+    if consolidado >= 75:
+        nivel_cons = "critico"
+    elif consolidado >= 50:
+        nivel_cons = "alto"
+    elif consolidado >= 30:
+        nivel_cons = "medio"
+    else:
+        nivel_cons = "baixo"
+
+    return {
+        "heuristico": heuristico,
+        "nivel_heuristico": nivel_heur,
+        "estatistico": estatistico,
+        "consolidado": consolidado,
+        "nivel_consolidado": nivel_cons,
+        "reasons": reasons,
+    }
+
+
+def render_simulador(df: pd.DataFrame) -> None:
+    st.subheader("Simulador de risco")
+    st.caption("Preencha os campos do boleto e veja o score dos dois motores em tempo real, com os motivos legíveis.")
+
+    col_left, col_right = st.columns([1.05, 1])
+
+    with col_left:
+        st.markdown("**Dados do boleto**")
+        valor_nominal = st.number_input("Valor nominal (R$)", min_value=0.0, value=25000.0, step=1000.0, format="%.2f")
+        delay_days = st.slider("Dias de atraso no pagamento", min_value=0, max_value=365, value=60)
+        baixa_missing = st.checkbox("Boleto sem valor de baixa", value=False)
+
+        st.markdown("**Perfil do pagador (sacado)**")
+        payer_volume = st.slider("Recorrência: quantos boletos esse pagador tem no histórico", 1, 50, 6)
+        payer_liquidity = st.slider("Índice de liquidez 1m do pagador", 0.0, 1.0, 0.55, step=0.05)
+        payer_inadimplencia = st.slider("Share de inadimplência 6 a 15 dias (pagador)", 0.0, 1.0, 0.10, step=0.01)
+
+        st.markdown("**Perfil do beneficiário (cedente)**")
+        beneficiary_volume = st.slider("Recorrência do beneficiário", 1, 50, 10)
+
+        st.markdown("**Camada estatística (Z-score)**")
+        z_combined = st.slider("Z-score combinado (desvio do valor vs histórico)", 0.0, 6.0, 1.0, step=0.1)
+
+    # Percentil do valor nominal a partir da base real
+    valores = df["amount"].astype(float).sort_values().values
+    if len(valores) > 0 and valor_nominal > 0:
+        import bisect
+        idx = bisect.bisect_left(valores, valor_nominal)
+        valor_percentil = idx / len(valores)
+    else:
+        valor_percentil = 0.0
+
+    resultado = simular_boleto(
+        valor_nominal=valor_nominal,
+        delay_days=delay_days,
+        baixa_missing=baixa_missing,
+        payer_volume=payer_volume,
+        beneficiary_volume=beneficiary_volume,
+        payer_liquidity=payer_liquidity,
+        payer_inadimplencia=payer_inadimplencia,
+        valor_percentil=valor_percentil,
+        z_combined=z_combined,
+    )
+
+    with col_right:
+        st.markdown("**Resultado da simulação**")
+        cols = st.columns(3)
+        cor_heur = LEVEL_COLORS.get(resultado["nivel_heuristico"], "#7a8595")
+        cor_cons = LEVEL_COLORS.get(resultado["nivel_consolidado"], "#7a8595")
+        cols[0].markdown(
+            f"<div style='padding:18px;border-radius:14px;background:rgba(0,120,212,0.12);"
+            f"border:1px solid {PRIMARY};'>"
+            f"<div style='font-size:11px;color:#7a8595;'>HEURÍSTICO</div>"
+            f"<div style='font-size:36px;font-weight:700;color:{PRIMARY};'>{resultado['heuristico']}</div>"
+            f"<div style='font-size:12px;color:{cor_heur};font-weight:700;'>{resultado['nivel_heuristico'].upper()}</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        cols[1].markdown(
+            f"<div style='padding:18px;border-radius:14px;background:rgba(212,252,121,0.10);"
+            f"border:1px solid {ACCENT};'>"
+            f"<div style='font-size:11px;color:#7a8595;'>ESTATÍSTICO</div>"
+            f"<div style='font-size:36px;font-weight:700;color:{ACCENT};'>{resultado['estatistico']}</div>"
+            f"<div style='font-size:12px;color:#7a8595;'>Z = {z_combined:.2f}</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        cols[2].markdown(
+            f"<div style='padding:18px;border-radius:14px;background:rgba(255,255,255,0.05);"
+            f"border:1px solid {cor_cons};'>"
+            f"<div style='font-size:11px;color:#7a8595;'>CONSOLIDADO</div>"
+            f"<div style='font-size:36px;font-weight:700;color:{cor_cons};'>{resultado['consolidado']}</div>"
+            f"<div style='font-size:12px;color:{cor_cons};font-weight:700;'>{resultado['nivel_consolidado'].upper()}</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+        st.caption(f"Percentil do valor nominal na base atual: **{valor_percentil*100:.1f}%**")
+
+        st.markdown("**Motivos detectados**")
+        if resultado["reasons"]:
+            for r in resultado["reasons"]:
+                st.markdown(f"- {r}")
+        else:
+            st.info("Nenhum gatilho de risco acionado para esse perfil.")
+
+    with st.expander("Como o simulador calcula"):
+        st.markdown(
+            """
+            O simulador aplica a mesma lógica do motor heurístico da Sprint 3 sobre os
+            valores que você informa: atraso, valor nominal, ausência de baixa, liquidez,
+            recorrência e inadimplência geram pontos no score 0 a 100.
+
+            A camada estatística usa o Z-score combinado que você ajusta no slider
+            (na execução real é calculado automaticamente por pagador e cedente).
+
+            O score consolidado segue a fórmula `0,7 * heurístico + 0,3 * estatístico`.
+            """
+        )
+
+
 def render_metodo(summary: dict | None) -> None:
     st.subheader("Como o motor decide")
     st.markdown(
@@ -302,7 +488,7 @@ def main() -> None:
 
     section = st.sidebar.radio(
         "Navegacao",
-        ["Visao geral", "Fila de alertas", "Heuristico vs estatistico", "Metodo"],
+        ["Visao geral", "Fila de alertas", "Heuristico vs estatistico", "Simulador", "Metodo"],
         index=0,
     )
 
@@ -326,6 +512,8 @@ def main() -> None:
         render_fila_alertas(df)
     elif section == "Heuristico vs estatistico":
         render_comparativo(df, summary)
+    elif section == "Simulador":
+        render_simulador(df)
     elif section == "Metodo":
         render_metodo(summary)
 
