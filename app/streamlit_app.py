@@ -191,6 +191,29 @@ def inject_theme(theme: str) -> dict:
         border: 1px solid {p['border']};
         padding: 16px 18px;
       }}
+
+      /* Limpar qualquer cor azul residual do option_menu */
+      section[data-testid="stSidebar"] nav,
+      section[data-testid="stSidebar"] nav a,
+      section[data-testid="stSidebar"] .nav-link,
+      section[data-testid="stSidebar"] .nav-pills,
+      section[data-testid="stSidebar"] .nav-pills .nav-link {{
+        background-color: transparent !important;
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+      }}
+      section[data-testid="stSidebar"] .nav-pills .nav-link.active,
+      section[data-testid="stSidebar"] .nav-pills .nav-link:hover {{
+        background-color: {p['panel_2']} !important;
+        color: {p['text']} !important;
+        border: none !important;
+        box-shadow: none !important;
+      }}
+      section[data-testid="stSidebar"] .nav-pills .nav-link:focus {{
+        outline: none !important;
+        box-shadow: none !important;
+      }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
@@ -716,8 +739,13 @@ def main() -> None:
             icons=["grid", "list-task", "graph-up", "calculator", "book"],
             default_index=0,
             styles={
-                "container": {"padding": "0", "background-color": "transparent"},
-                "icon": {"color": p["primary"], "font-size": "16px"},
+                "container": {
+                    "padding": "0",
+                    "background-color": "transparent",
+                    "border": "none",
+                    "box-shadow": "none",
+                },
+                "icon": {"color": p["muted"], "font-size": "16px"},
                 "nav-link": {
                     "font-size": "14px",
                     "text-align": "left",
@@ -726,11 +754,15 @@ def main() -> None:
                     "color": p["text"],
                     "border-radius": "0",
                     "background-color": "transparent",
+                    "border": "none",
+                    "--hover-color": p["panel_2"],
                 },
                 "nav-link-selected": {
                     "background-color": p["panel_2"],
                     "color": p["text"],
                     "font-weight": "500",
+                    "border": "none",
+                    "box-shadow": "none",
                 },
             },
         )
