@@ -729,9 +729,8 @@ def main() -> None:
                 },
                 "nav-link-selected": {
                     "background-color": p["panel_2"],
-                    "color": p["primary"],
+                    "color": p["text"],
                     "font-weight": "500",
-                    "border-left": f"3px solid {p['primary']}",
                 },
             },
         )
